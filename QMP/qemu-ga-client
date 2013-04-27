@@ -257,6 +257,17 @@ def _cmd_clipboard_set(client, args):
         sys.exit(1)
     client.clipboard_set(args[0])
 
+
+def clipboard_changed(clipboard, event, client):
+    text = clipboard.wait_for_text()
+    client.clipboard_set(text)
+    
+def _cmd_clipboard_monitor(client, args):
+    import gtk
+    clipboard = gtk.Clipboard(gtk.gdk.display_get_default(), "CLIPBOARD")
+    clipboard.connect('owner-change', clipboard_changed, client)
+    gtk.mainloop()  
+
 commands = [m.replace('_cmd_', '') for m in dir() if '_cmd_' in m]
 
 
