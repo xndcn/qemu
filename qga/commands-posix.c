@@ -1104,3 +1104,63 @@ void ga_command_state_init(GAState *s, GACommandState *cs)
 #endif
     ga_command_state_add(cs, guest_file_init, NULL);
 }
+
+
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+void qmp_guest_clipboard_set(const char * text, Error **errp)
+{
+    Display *display = XOpenDisplay(NULL);
+    
+    Atom XA_CLIPBOARD_MANAGER = XInternAtom (display, "CLIPBOARD_MANAGER", True);
+    Atom XA_CLIPBOARD = XInternAtom(display, "CLIPBOARD", True);
+    Atom XA_UTF8 = XInternAtom(display, "UTF8_STRING", True);	
+    Atom XA_SAVE_TARGETS = XInternAtom(display, "SAVE_TARGETS", True);
+    Atom XA_MULTIPLE = XInternAtom(display, "MULTIPLE", True);    
+    Atom QGA_SELECTION = XInternAtom(display, "QGA_SELECTION", False);
+    
+    Window win = XCreateSimpleWindow(display, XDefaultRootWindow(display), 0, 0, 1, 1, 0, 0, 0);
+    XSetSelectionOwner(display, XA_CLIPBOARD, win, CurrentTime); /*Set clipboard owener*/
+    XChangeProperty(display, win, QGA_SELECTION, XA_ATOM, 32, PropModeReplace, (unsigned char *)&XA_UTF8, 1);
+    XConvertSelection(display, XA_CLIPBOARD_MANAGER, XA_SAVE_TARGETS, QGA_SELECTION, win, CurrentTime); /*Let clipboard manager request the data*/
+    
+    XEvent xevt, report;
+    for (;;) {
+        XNextEvent(display, &xevt);
+        if (xevt.type == SelectionRequest) {
+            report.xselection.type = SelectionNotify;
+            report.xselection.display = xevt.xselectionrequest.display;
+            report.xselection.requestor = xevt.xselectionrequest.requestor;
+            report.xselection.selection = xevt.xselectionrequest.selection;
+            report.xselection.target = xevt.xselectionrequest.target;
+            report.xselection.time = xevt.xselectionrequest.time;
+            report.xselection.property = xevt.xselectionrequest.property;
+            
+            if (xevt.xselectionrequest.target == XA_MULTIPLE) {
+                Atom actual_type, requested = None;
+                int actual_format, i;
+                unsigned long nitems, bytes;
+                unsigned char *prop;
+                Atom * wanted_atoms;
+                
+                XGetWindowProperty(display, xevt.xselectionrequest.requestor, xevt.xselectionrequest.property, 0, 1000000, False, AnyPropertyType, &actual_type, &actual_format, &nitems, &bytes, &prop);
+                wanted_atoms = (Atom *) malloc(sizeof(Atom) * nitems);
+                memcpy(wanted_atoms, prop, sizeof(Atom) * nitems);
+                for (i = 0; i < nitems; i++) {
+                    if (requested == None)
+                        requested = wanted_atoms[i];
+                    else {
+                        XChangeProperty(display, xevt.xselectionrequest.requestor, wanted_atoms[i], requested, 8, PropModeReplace, (const unsigned char *)text, strlen(text)+1);
+                        requested = None;
+                    }
+                }
+                XSendEvent(display, xevt.xselectionrequest.requestor, False, NoEventMask, &report);
+                free(wanted_atoms);
+                XFree(prop);
+                break;
+            }
+        }
+    }
+    XDestroyWindow(display, win);
+  	XCloseDisplay(display);
+}

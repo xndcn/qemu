@@ -2157,6 +2157,21 @@ else
 fi
 
 ##########################################
+# X11 support probe
+
+if $pkg_config x11 > /dev/null 2>&1
+then
+	x11_libs=`$pkg_config --libs x11 2>/dev/null`
+	libs_qga="$x11_libs $libs_qga"
+else
+	if [ "$guest_agent" = "yes" ]; then
+		echo "x11 required to compile QEMU Guset Agent"
+		exit 1
+	fi
+fi
+	
+
+##########################################
 # pixman support probe
 
 if test "$pixman" = ""; then

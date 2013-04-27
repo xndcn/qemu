@@ -515,3 +515,14 @@
 ##
 { 'command': 'guest-network-get-interfaces',
   'returns': ['GuestNetworkInterface'] }
+
+
+##
+# @guest-clipboard-set
+#
+# Set the clipboard content of guset clipboard.
+#
+# @text: the text want to set in clipboard.
+##
+{ 'command': 'guest-clipboard-set', 
+  'data': {'text': 'str'} }
