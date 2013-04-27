@@ -161,7 +161,12 @@ class QemuGuestAgentClient:
             self.qga.shutdown(mode=mode)
         except self.qga.timeout:
             return
-
+            
+    def clipboard_set(self, text):
+        try:
+            self.qga.clipboard_set(text=text)
+        except self.qga.timeout:
+            return
 
 def _cmd_cat(client, args):
     if len(args) != 1:
@@ -243,6 +248,14 @@ def _cmd_halt(client, args):
 def _cmd_reboot(client, args):
     client.shutdown('reboot')
 
+
+def _cmd_clipboard_set(client, args):
+    usage = 'Usage: clipboard_set text'
+    if len(args) != 1:
+        print('Less argument')
+        print(usage)
+        sys.exit(1)
+    client.clipboard_set(args[0])
 
 commands = [m.replace('_cmd_', '') for m in dir() if '_cmd_' in m]
 
